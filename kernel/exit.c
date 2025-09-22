@@ -10,6 +10,7 @@
 int sys_pause(void);
 int sys_close(int fd);
 
+// 释放任务结构
 void release(struct task_struct * p)
 {
 	int i;
@@ -26,6 +27,7 @@ void release(struct task_struct * p)
 	panic("trying to release non-existent task");
 }
 
+// 发送信号给指定进程的内联函数
 static inline void send_sig(long sig,struct task_struct * p,int priv)
 {
 	if (!p || sig<1 || sig>32)
@@ -38,6 +40,7 @@ static inline void send_sig(long sig,struct task_struct * p,int priv)
 		p->signal |= (1<<(sig-1));
 }
 
+// 发送kill信号
 void do_kill(long pid,long sig,int priv)
 {
 	struct task_struct **p = NR_TASKS + task;
@@ -55,12 +58,14 @@ void do_kill(long pid,long sig,int priv)
 			send_sig(sig,*p,priv);
 }
 
+// kill系统调用
 int sys_kill(int pid,int sig)
 {
 	do_kill(pid,sig,!(current->uid || current->euid));
 	return 0;
 }
 
+// 执行进程退出操作
 int do_exit(long code)
 {
 	int i;
@@ -88,14 +93,16 @@ int do_exit(long code)
 	} else
 		release(current);
 	schedule();
-	return (-1);	/* just to suppress warnings */
+	return (-1);	/* 仅用于消除警告 */
 }
 
+// exit系统调用
 int sys_exit(int error_code)
 {
 	return do_exit((error_code&0xff)<<8);
 }
 
+// waitpid系统调用，等待子进程结束
 int sys_waitpid(pid_t pid,int * stat_addr, int options)
 {
 	int flag=0;
@@ -131,5 +138,3 @@ repeat:
 	}
 	return -ECHILD;
 }
-
-

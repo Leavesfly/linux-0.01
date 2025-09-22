@@ -5,34 +5,40 @@
 #include <linux/kernel.h>
 #include <asm/system.h>
 
+// 进程退出函数声明
 int do_exit(long code);
 
+// 使TLB（Translation Lookaside Buffer）无效的宏定义
 #define invalidate() \
 __asm__("movl %%eax,%%cr3"::"a" (0))
 
+// 根据BUFFER_END定义LOW_MEM的值
 #if (BUFFER_END < 0x100000)
 #define LOW_MEM 0x100000
 #else
 #define LOW_MEM BUFFER_END
 #endif
 
-/* these are not to be changed - thay are calculated from the above */
-#define PAGING_MEMORY (HIGH_MEMORY - LOW_MEM)
-#define PAGING_PAGES (PAGING_MEMORY/4096)
-#define MAP_NR(addr) (((addr)-LOW_MEM)>>12)
+/* 这些不应该被修改 - 它们是从上面计算得出的 */
+#define PAGING_MEMORY (HIGH_MEMORY - LOW_MEM)  // 分页内存大小
+#define PAGING_PAGES (PAGING_MEMORY/4096)      // 分页页数
+#define MAP_NR(addr) (((addr)-LOW_MEM)>>12)    // 地址到页号的映射
 
+// 如果分页页数小于10，则报错
 #if (PAGING_PAGES < 10)
 #error "Won't work"
 #endif
 
+// 复制页面的宏定义
 #define copy_page(from,to) \
 __asm__("cld ; rep ; movsl"::"S" (from),"D" (to),"c" (1024):"cx","di","si")
 
+// 内存映射数组，用于跟踪页面使用情况
 static unsigned short mem_map [ PAGING_PAGES ] = {0,};
 
 /*
- * Get physical address of first (actually last :-) free page, and mark it
- * used. If no free pages left, return 0.
+ * 获取第一个（实际上是最后一个:-)空闲页面的物理地址，并标记为已使用。
+ * 如果没有空闲页面，则返回0。
  */
 unsigned long get_free_page(void)
 {
@@ -57,8 +63,7 @@ return __res;
 }
 
 /*
- * Free a page of memory at physical address 'addr'. Used by
- * 'free_page_tables()'
+ * 释放物理地址为'addr'的内存页面。由'free_page_tables()'使用
  */
 void free_page(unsigned long addr)
 {
@@ -73,8 +78,8 @@ void free_page(unsigned long addr)
 }
 
 /*
- * This function frees a continuos block of page tables, as needed
- * by 'exit()'. As does copy_page_tables(), this handles only 4Mb blocks.
+ * 这个函数释放连续的页表块，由'exit()'所需。
+ * 与copy_page_tables()一样，这只处理4Mb的块。
  */
 int free_page_tables(unsigned long from,unsigned long size)
 {
@@ -105,21 +110,17 @@ int free_page_tables(unsigned long from,unsigned long size)
 }
 
 /*
- *  Well, here is one of the most complicated functions in mm. It
- * copies a range of linerar addresses by copying only the pages.
- * Let's hope this is bug-free, 'cause this one I don't want to debug :-)
+ * 好了，这是mm中最复杂的函数之一。它通过只复制页面来复制线性地址范围。
+ * 希望这是无bug的，因为这个函数我不想调试 :-)
  *
- * Note! We don't copy just any chunks of memory - addresses have to
- * be divisible by 4Mb (one page-directory entry), as this makes the
- * function easier. It's used only by fork anyway.
+ * 注意！我们不复制任何内存块 - 地址必须能被4Mb整除（一个页目录项），
+ * 因为这使函数更容易。它只被fork使用。
  *
- * NOTE 2!! When from==0 we are copying kernel space for the first
- * fork(). Then we DONT want to copy a full page-directory entry, as
- * that would lead to some serious memory waste - we just copy the
- * first 160 pages - 640kB. Even that is more than we need, but it
- * doesn't take any more memory - we don't copy-on-write in the low
- * 1 Mb-range, so the pages can be shared with the kernel. Thus the
- * special case for nr=xxxx.
+ * 注意2！！当from==0时，我们正在为第一次fork()复制内核空间。
+ * 那时我们不想复制整个页目录项，因为那会导致严重的内存浪费 -
+ * 我们只复制前160页 - 640kB。即使这比我们需要的多，但它不会占用更多内存 -
+ * 我们在低1Mb范围内不使用写时复制，所以页面可以与内核共享。
+ * 因此nr=xxxx的特殊情况。
  */
 int copy_page_tables(unsigned long from,unsigned long to,long size)
 {
@@ -141,7 +142,7 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 			continue;
 		from_page_table = (unsigned long *) (0xfffff000 & *from_dir);
 		if (!(to_page_table = (unsigned long *) get_free_page()))
-			return -1;	/* Out of memory, see freeing */
+			return -1;	/* 内存不足，参见释放 */
 		*to_dir = ((unsigned long) to_page_table) | 7;
 		nr = (from==0)?0xA0:1024;
 		for ( ; nr-- > 0 ; from_page_table++,to_page_table++) {
@@ -163,16 +164,15 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 }
 
 /*
- * This function puts a page in memory at the wanted address.
- * It returns the physical address of the page gotten, 0 if
- * out of memory (either when trying to access page-table or
- * page.)
+ * 这个函数将一个页面放入内存中的指定地址。
+ * 它返回获取的页面的物理地址，如果内存不足则返回0
+ * （在尝试访问页表或页面时）。
  */
 unsigned long put_page(unsigned long page,unsigned long address)
 {
 	unsigned long tmp, *page_table;
 
-/* NOTE !!! This uses the fact that _pg_dir=0 */
+/* 注意！！！这利用了_pg_dir=0的事实 */
 
 	if (page < LOW_MEM || page > HIGH_MEMORY)
 		printk("Trying to put page %p at %p\n",page,address);
@@ -191,6 +191,7 @@ unsigned long put_page(unsigned long page,unsigned long address)
 	return page;
 }
 
+// 解除写保护页面
 void un_wp_page(unsigned long * table_entry)
 {
 	unsigned long old_page,new_page;
@@ -209,9 +210,8 @@ void un_wp_page(unsigned long * table_entry)
 }	
 
 /*
- * This routine handles present pages, when users try to write
- * to a shared page. It is done by copying the page to a new address
- * and decrementing the shared-page counter for the old page.
+ * 这个例程处理当前页面，当用户尝试写入共享页面时。
+ * 通过将页面复制到新地址并减少旧页面的共享页面计数器来完成。
  */
 void do_wp_page(unsigned long error_code,unsigned long address)
 {
@@ -221,6 +221,7 @@ void do_wp_page(unsigned long error_code,unsigned long address)
 
 }
 
+// 写验证函数
 void write_verify(unsigned long address)
 {
 	unsigned long page;
@@ -229,11 +230,12 @@ void write_verify(unsigned long address)
 		return;
 	page &= 0xfffff000;
 	page += ((address>>10) & 0xffc);
-	if ((3 & *(unsigned long *) page) == 1)  /* non-writeable, present */
+	if ((3 & *(unsigned long *) page) == 1)  /* 非可写，当前 */
 		un_wp_page((unsigned long *) page);
 	return;
 }
 
+// 处理缺页异常
 void do_no_page(unsigned long error_code,unsigned long address)
 {
 	unsigned long tmp;
@@ -244,6 +246,7 @@ void do_no_page(unsigned long error_code,unsigned long address)
 	do_exit(SIGSEGV);
 }
 
+// 计算内存使用情况
 void calc_mem(void)
 {
 	int i,j,k,free=0;

@@ -7,61 +7,73 @@
 #include <sys/times.h>
 #include <sys/utsname.h>
 
+// ftime系统调用（未实现）
 int sys_ftime()
 {
 	return -ENOSYS;
 }
 
+// mknod系统调用（未实现）
 int sys_mknod()
 {
 	return -ENOSYS;
 }
 
+// break系统调用（未实现）
 int sys_break()
 {
 	return -ENOSYS;
 }
 
+// mount系统调用（未实现）
 int sys_mount()
 {
 	return -ENOSYS;
 }
 
+// umount系统调用（未实现）
 int sys_umount()
 {
 	return -ENOSYS;
 }
 
+// ustat系统调用，获取文件系统统计信息
 int sys_ustat(int dev,struct ustat * ubuf)
 {
 	return -1;
 }
 
+// ptrace系统调用（未实现）
 int sys_ptrace()
 {
 	return -ENOSYS;
 }
 
+// stty系统调用（未实现）
 int sys_stty()
 {
 	return -ENOSYS;
 }
 
+// gtty系统调用（未实现）
 int sys_gtty()
 {
 	return -ENOSYS;
 }
 
+// rename系统调用（未实现）
 int sys_rename()
 {
 	return -ENOSYS;
 }
 
+// prof系统调用（未实现）
 int sys_prof()
 {
 	return -ENOSYS;
 }
 
+// 设置组ID
 int sys_setgid(int gid)
 {
 	if (current->euid && current->uid)
@@ -74,31 +86,37 @@ int sys_setgid(int gid)
 	return 0;
 }
 
+// acct系统调用（未实现）
 int sys_acct()
 {
 	return -ENOSYS;
 }
 
+// phys系统调用（未实现）
 int sys_phys()
 {
 	return -ENOSYS;
 }
 
+// lock系统调用（未实现）
 int sys_lock()
 {
 	return -ENOSYS;
 }
 
+// mpx系统调用（未实现）
 int sys_mpx()
 {
 	return -ENOSYS;
 }
 
+// ulimit系统调用（未实现）
 int sys_ulimit()
 {
 	return -ENOSYS;
 }
 
+// 获取系统时间
 int sys_time(long * tloc)
 {
 	int i;
@@ -111,6 +129,7 @@ int sys_time(long * tloc)
 	return i;
 }
 
+// 设置用户ID
 int sys_setuid(int uid)
 {
 	if (current->euid && current->uid)
@@ -123,6 +142,7 @@ int sys_setuid(int uid)
 	return 0;
 }
 
+// 设置系统时间
 int sys_stime(long * tptr)
 {
 	if (current->euid && current->uid)
@@ -131,6 +151,7 @@ int sys_stime(long * tptr)
 	return 0;
 }
 
+// 获取进程时间统计
 int sys_times(struct tms * tbuf)
 {
 	if (!tbuf)
@@ -143,6 +164,7 @@ int sys_times(struct tms * tbuf)
 	return jiffies;
 }
 
+// 设置程序数据段结束地址
 int sys_brk(unsigned long end_data_seg)
 {
 	if (end_data_seg >= current->end_code &&
@@ -152,9 +174,9 @@ int sys_brk(unsigned long end_data_seg)
 }
 
 /*
- * This needs some heave checking ...
- * I just haven't get the stomach for it. I also don't fully
- * understand sessions/pgrp etc. Let somebody who does explain it.
+ * 这需要一些严格的检查...
+ * 我只是没有胃口去做。我也不完全理解会话/进程组等。
+ * 让一些懂的人来解释吧。
  */
 int sys_setpgid(int pid, int pgid)
 {
@@ -176,11 +198,13 @@ int sys_setpgid(int pid, int pgid)
 	return -ESRCH;
 }
 
+// 获取进程组ID
 int sys_getpgrp(void)
 {
 	return current->pgrp;
 }
 
+// 创建新会话
 int sys_setsid(void)
 {
 	if (current->uid && current->euid)
@@ -193,6 +217,7 @@ int sys_setsid(void)
 	return current->pgrp;
 }
 
+// 获取系统名称信息
 int sys_uname(struct utsname * name)
 {
 	static struct utsname thisname = {
@@ -207,6 +232,7 @@ int sys_uname(struct utsname * name)
 	return (0);
 }
 
+// 设置文件权限掩码
 int sys_umask(int mask)
 {
 	int old = current->umask;

@@ -1,8 +1,8 @@
 /*
- *  'fork.c' contains the help-routines for the 'fork' system call
- * (see also system_call.s), and some misc functions ('verify_area').
- * Fork is rather simple, once you get the hang of it, but the memory
- * management can be a bitch. See 'mm/mm.c': 'copy_page_tables()'
+ *  'fork.c'包含了'fork'系统调用的辅助例程
+ * (参见system_call.s)，以及一些杂项函数('verify_area')。
+ * 一旦你掌握了它，Fork相当简单，但内存管理可能很棘手。
+ * 参见'mm/mm.c': 'copy_page_tables()'
  */
 #include <errno.h>
 
@@ -13,8 +13,10 @@
 
 extern void write_verify(unsigned long address);
 
+// 全局变量：最后一个进程ID
 long last_pid=0;
 
+// 验证内存区域的可访问性
 void verify_area(void * addr,int size)
 {
 	unsigned long start;
@@ -30,6 +32,7 @@ void verify_area(void * addr,int size)
 	}
 }
 
+// 复制进程内存空间
 int copy_mem(int nr,struct task_struct * p)
 {
 	unsigned long old_data_base,new_data_base,data_limit;
@@ -54,9 +57,8 @@ int copy_mem(int nr,struct task_struct * p)
 }
 
 /*
- *  Ok, this is the main fork-routine. It copies the system process
- * information (task[nr]) and sets up the necessary registers. It
- * also copies the data segment in it's entirety.
+ *  这是主要的fork例程。它复制系统进程信息(task[nr])
+ * 并设置必要的寄存器。它还会完整地复制数据段。
  */
 int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 		long ebx,long ecx,long edx,
@@ -70,14 +72,14 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p = (struct task_struct *) get_free_page();
 	if (!p)
 		return -EAGAIN;
-	*p = *current;	/* NOTE! this doesn't copy the supervisor stack */
+	*p = *current;	/* 注意！这不会复制监督程序栈 */
 	p->state = TASK_RUNNING;
 	p->pid = last_pid;
 	p->father = current->pid;
 	p->counter = p->priority;
 	p->signal = 0;
 	p->alarm = 0;
-	p->leader = 0;		/* process leadership doesn't inherit */
+	p->leader = 0;		/* 进程领导权不会继承 */
 	p->utime = p->stime = 0;
 	p->cutime = p->cstime = 0;
 	p->start_time = jiffies;
@@ -117,10 +119,11 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 		current->root->i_count++;
 	set_tss_desc(gdt+(nr<<1)+FIRST_TSS_ENTRY,&(p->tss));
 	set_ldt_desc(gdt+(nr<<1)+FIRST_LDT_ENTRY,&(p->ldt));
-	task[nr] = p;	/* do this last, just in case */
+	task[nr] = p;	/* 最后做这个，以防万一 */
 	return last_pid;
 }
 
+// 查找空闲的进程槽位
 int find_empty_process(void)
 {
 	int i;

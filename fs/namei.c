@@ -8,30 +8,32 @@
 #include <const.h>
 #include <sys/stat.h>
 
+// 访问模式宏定义
 #define ACC_MODE(x) ("\004\002\006\377"[(x)&O_ACCMODE])
 
 /*
- * comment out this line if you want names > NAME_LEN chars to be
- * truncated. Else they will be disallowed.
+ * 如果你希望名称超过NAME_LEN字符被截断，请注释掉这行。
+ * 否则它们将被禁止。
  */
 /* #define NO_TRUNCATE */
 
-#define MAY_EXEC 1
-#define MAY_WRITE 2
-#define MAY_READ 4
+// 权限定义
+#define MAY_EXEC 1   // 可执行权限
+#define MAY_WRITE 2  // 可写权限
+#define MAY_READ 4   // 可读权限
 
 /*
  *	permission()
  *
- * is used to check for read/write/execute permissions on a file.
- * I don't know if we should look at just the euid or both euid and
- * uid, but that should be easily changed.
+ * 用于检查文件的读/写/执行权限。
+ * 我不知道是否应该只查看euid还是同时查看euid和uid，但这应该很容易更改。
  */
+// 检查文件权限的静态函数
 static int permission(struct m_inode * inode,int mask)
 {
 	int mode = inode->i_mode;
 
-/* special case: not even root can read/write a deleted file */
+/* 特殊情况：即使是root也不能读/写已删除的文件 */
 	if (inode->i_dev && !inode->i_nlinks)
 		return 0;
 	if (!(current->uid && current->euid))
@@ -50,6 +52,7 @@ static int permission(struct m_inode * inode,int mask)
  *
  * NOTE! unlike strncmp, match returns 1 for success, 0 for failure.
  */
+// 匹配文件名的静态函数
 static int match(int len,const char * name,struct dir_entry * de)
 {
 	register int same __asm__("ax");
@@ -70,11 +73,11 @@ static int match(int len,const char * name,struct dir_entry * de)
 /*
  *	find_entry()
  *
- * finds and entry in the specified directory with the wanted name. It
- * returns the cache buffer in which the entry was found, and the entry
- * itself (as a parameter - res_dir). It does NOT read the inode of the
- * entry - you'll have to do that yourself if you want to.
+ * 在指定目录中查找具有所需名称的条目。它返回找到条目的缓存缓冲区，
+ * 以及条目本身（作为参数-res_dir）。它不会读取条目的inode -
+ * 如果你想要的话，你必须自己做。
  */
+// 查找目录条目的静态函数
 static struct buffer_head * find_entry(struct m_inode * dir,
 	const char * name, int namelen, struct dir_entry ** res_dir)
 {
@@ -125,13 +128,13 @@ static struct buffer_head * find_entry(struct m_inode * dir,
 /*
  *	add_entry()
  *
- * adds a file entry to the specified directory, using the same
- * semantics as find_entry(). It returns NULL if it failed.
+ * 使用与find_entry()相同的语义将文件条目添加到指定目录。
+ * 如果失败则返回NULL。
  *
- * NOTE!! The inode part of 'de' is left at 0 - which means you
- * may not sleep between calling this and putting something into
- * the entry, as someone else might have used it while you slept.
+ * 注意！！'de'的inode部分保留为0 - 这意味着在调用此函数和将内容放入条目之间
+ * 你可能不会睡眠，因为有人可能在你睡眠时使用了它。
  */
+// 添加目录条目的静态函数
 static struct buffer_head * add_entry(struct m_inode * dir,
 	const char * name, int namelen, struct dir_entry ** res_dir)
 {
@@ -192,9 +195,10 @@ static struct buffer_head * add_entry(struct m_inode * dir,
 /*
  *	get_dir()
  *
- * Getdir traverses the pathname until it hits the topmost directory.
- * It returns NULL on failure.
+ * Getdir遍历路径名直到到达最顶层目录。
+ * 失败时返回NULL。
  */
+// 获取目录的静态函数
 static struct m_inode * get_dir(const char * pathname)
 {
 	char c;
@@ -214,7 +218,7 @@ static struct m_inode * get_dir(const char * pathname)
 	} else if (c)
 		inode = current->pwd;
 	else
-		return NULL;	/* empty name is bad */
+		return NULL;	/* 空名称是错误的 */
 	inode->i_count++;
 	while (1) {
 		thisname = pathname;
@@ -223,7 +227,7 @@ static struct m_inode * get_dir(const char * pathname)
 			return NULL;
 		}
 		for(namelen=0;(c=get_fs_byte(pathname++))&&(c!='/');namelen++)
-			/* nothing */ ;
+			/* 无操作 */ ;
 		if (!c)
 			return inode;
 		if (!(bh = find_entry(inode,thisname,namelen,&de))) {
@@ -242,9 +246,9 @@ static struct m_inode * get_dir(const char * pathname)
 /*
  *	dir_namei()
  *
- * dir_namei() returns the inode of the directory of the
- * specified name, and the name within that directory.
+ * dir_namei()返回指定名称的目录的inode，以及该目录中的名称。
  */
+// 获取目录名称的静态函数
 static struct m_inode * dir_namei(const char * pathname,
 	int * namelen, const char ** name)
 {
@@ -266,10 +270,10 @@ static struct m_inode * dir_namei(const char * pathname,
 /*
  *	namei()
  *
- * is used by most simple commands to get the inode of a specified name.
- * Open, link etc use their own routines, but this is enough for things
- * like 'chmod' etc.
+ * 被大多数简单命令用来获取指定名称的inode。
+ * Open、link等使用它们自己的例程，但这足以用于'chmod'等命令。
  */
+// 根据路径名获取inode的函数
 struct m_inode * namei(const char * pathname)
 {
 	const char * basename;
@@ -280,7 +284,7 @@ struct m_inode * namei(const char * pathname)
 
 	if (!(dir = dir_namei(pathname,&namelen,&basename)))
 		return NULL;
-	if (!namelen)			/* special case: '/usr/' etc */
+	if (!namelen)			/* 特殊情况：'/usr/'等 */
 		return dir;
 	bh = find_entry(dir,basename,namelen,&de);
 	if (!bh) {
@@ -302,8 +306,9 @@ struct m_inode * namei(const char * pathname)
 /*
  *	open_namei()
  *
- * namei for open - this is in fact almost the whole open-routine.
+ * open的namei - 这实际上几乎是整个打开例程。
  */
+// 打开文件时查找inode的函数
 int open_namei(const char * pathname, int flag, int mode,
 	struct m_inode ** res_inode)
 {
@@ -319,7 +324,7 @@ int open_namei(const char * pathname, int flag, int mode,
 	mode |= I_REGULAR;
 	if (!(dir = dir_namei(pathname,&namelen,&basename)))
 		return -ENOENT;
-	if (!namelen) {			/* special case: '/usr/' etc */
+	if (!namelen) {			/* 特殊情况：'/usr/'等 */
 		if (!(flag & (O_ACCMODE|O_CREAT|O_TRUNC))) {
 			*res_inode=dir;
 			return 0;
@@ -378,6 +383,7 @@ int open_namei(const char * pathname, int flag, int mode,
 	return 0;
 }
 
+// mkdir系统调用，创建目录
 int sys_mkdir(const char * pathname, int mode)
 {
 	const char * basename;
@@ -456,8 +462,9 @@ int sys_mkdir(const char * pathname, int mode)
 }
 
 /*
- * routine to check that the specified directory is empty (for rmdir)
+ * 检查指定目录是否为空的例程（用于rmdir）
  */
+// 检查目录是否为空的静态函数
 static int empty_dir(struct m_inode * inode)
 {
 	int nr,block;
@@ -502,6 +509,7 @@ static int empty_dir(struct m_inode * inode)
 	return 1;
 }
 
+// rmdir系统调用，删除目录
 int sys_rmdir(const char * name)
 {
 	const char * basename;
@@ -533,7 +541,7 @@ int sys_rmdir(const char * name)
 		brelse(bh);
 		return -EPERM;
 	}
-	if (inode == dir) {	/* we may not delete ".", but "../dir" is ok */
+	if (inode == dir) {	/* 我们不能删除"."，但"../dir"是可以的 */
 		iput(inode);
 		iput(dir);
 		brelse(bh);
@@ -566,6 +574,7 @@ int sys_rmdir(const char * name)
 	return 0;
 }
 
+// unlink系统调用，删除文件链接
 int sys_unlink(const char * name)
 {
 	const char * basename;
@@ -618,6 +627,7 @@ int sys_unlink(const char * name)
 	return 0;
 }
 
+// link系统调用，创建硬链接
 int sys_link(const char * oldname, const char * newname)
 {
 	struct dir_entry * de;

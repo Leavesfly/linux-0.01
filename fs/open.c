@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <asm/segment.h>
 
+// utime系统调用，更新文件的访问和修改时间
 int sys_utime(char * filename, struct utimbuf * times)
 {
 	struct m_inode * inode;
@@ -29,6 +30,7 @@ int sys_utime(char * filename, struct utimbuf * times)
 	return 0;
 }
 
+// access系统调用，检查文件访问权限
 int sys_access(const char * filename,int mode)
 {
 	struct m_inode * inode;
@@ -53,6 +55,7 @@ int sys_access(const char * filename,int mode)
 	return -EACCES;
 }
 
+// chdir系统调用，改变当前工作目录
 int sys_chdir(const char * filename)
 {
 	struct m_inode * inode;
@@ -68,6 +71,7 @@ int sys_chdir(const char * filename)
 	return (0);
 }
 
+// chroot系统调用，改变根目录
 int sys_chroot(const char * filename)
 {
 	struct m_inode * inode;
@@ -83,6 +87,7 @@ int sys_chroot(const char * filename)
 	return (0);
 }
 
+// chmod系统调用，改变文件权限
 int sys_chmod(const char * filename,int mode)
 {
 	struct m_inode * inode;
@@ -101,6 +106,7 @@ int sys_chmod(const char * filename,int mode)
 	return 0;
 }
 
+// chown系统调用，改变文件所有者
 int sys_chown(const char * filename,int uid,int gid)
 {
 	struct m_inode * inode;
@@ -118,6 +124,7 @@ int sys_chown(const char * filename,int uid,int gid)
 	return 0;
 }
 
+// open系统调用，打开文件
 int sys_open(const char * filename,int flag,int mode)
 {
 	struct m_inode * inode;
@@ -142,7 +149,7 @@ int sys_open(const char * filename,int flag,int mode)
 		f->f_count=0;
 		return i;
 	}
-/* ttys are somewhat special (ttyxx major==4, tty major==5) */
+/* ttys有些特殊（ttyxx主设备号==4，tty主设备号==5） */
 	if (S_ISCHR(inode->i_mode))
 		if (MAJOR(inode->i_zone[0])==4) {
 			if (current->leader && current->tty<0) {
@@ -164,11 +171,13 @@ int sys_open(const char * filename,int flag,int mode)
 	return (fd);
 }
 
+// creat系统调用，创建文件
 int sys_creat(const char * pathname, int mode)
 {
 	return sys_open(pathname, O_CREAT | O_TRUNC, mode);
 }
 
+// close系统调用，关闭文件
 int sys_close(unsigned int fd)
 {	
 	struct file * filp;

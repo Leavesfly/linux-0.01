@@ -1,8 +1,7 @@
 /*
- * 'Traps.c' handles hardware traps and faults after we have saved some
- * state in 'asm.s'. Currently mostly a debugging-aid, will be extended
- * to mainly kill the offending process (probably by giving it a signal,
- * but possibly by killing it outright if necessary).
+ * 'Traps.c'处理硬件陷阱和故障，在我们保存了一些状态到'asm.s'之后。
+ * 目前主要是一个调试辅助工具，将扩展为主要杀死违规进程
+ * (可能通过给它发送信号，但必要时可能直接杀死它)。
  */
 #include <string.h>
 
@@ -12,45 +11,52 @@
 #include <asm/system.h>
 #include <asm/segment.h>
 
+// 从指定段获取字节的宏定义
 #define get_seg_byte(seg,addr) ({ \
 register char __res; \
 __asm__("push %%fs;mov %%ax,%%fs;movb %%fs:%2,%%al;pop %%fs" \
 	:"=a" (__res):"0" (seg),"m" (*(addr))); \
 __res;})
 
+// 从指定段获取长整型的宏定义
 #define get_seg_long(seg,addr) ({ \
 register unsigned long __res; \
 __asm__("push %%fs;mov %%ax,%%fs;movl %%fs:%2,%%eax;pop %%fs" \
 	:"=a" (__res):"0" (seg),"m" (*(addr))); \
 __res;})
 
+// 获取fs段寄存器值的宏定义
 #define _fs() ({ \
 register unsigned short __res; \
 __asm__("mov %%fs,%%ax":"=a" (__res):); \
 __res;})
 
+// 进程退出函数声明
 int do_exit(long code);
 
+// 页面异常处理函数声明
 void page_exception(void);
 
-void divide_error(void);
-void debug(void);
-void nmi(void);
-void int3(void);
-void overflow(void);
-void bounds(void);
-void invalid_op(void);
-void device_not_available(void);
-void double_fault(void);
-void coprocessor_segment_overrun(void);
-void invalid_TSS(void);
-void segment_not_present(void);
-void stack_segment(void);
-void general_protection(void);
-void page_fault(void);
-void coprocessor_error(void);
-void reserved(void);
+// 各种异常处理函数声明
+void divide_error(void);                  // 除法错误
+void debug(void);                         // 调试异常
+void nmi(void);                           // 非屏蔽中断
+void int3(void);                          // 断点中断
+void overflow(void);                      // 溢出
+void bounds(void);                        // 边界检查
+void invalid_op(void);                    // 无效操作码
+void device_not_available(void);          // 设备不可用
+void double_fault(void);                  // 双重故障
+void coprocessor_segment_overrun(void);   // 协处理器段越界
+void invalid_TSS(void);                   // 无效TSS
+void segment_not_present(void);           // 段不存在
+void stack_segment(void);                 // 栈段异常
+void general_protection(void);            // 一般保护异常
+void page_fault(void);                    // 页面故障
+void coprocessor_error(void);             // 协处理器错误
+void reserved(void);                      // 保留异常
 
+// 内核崩溃处理函数
 static void die(char * str,long esp_ptr,long nr)
 {
 	long * esp = (long *) esp_ptr;
@@ -72,24 +78,28 @@ static void die(char * str,long esp_ptr,long nr)
 	for(i=0;i<10;i++)
 		printk("%02x ",0xff & get_seg_byte(esp[1],(i+(char *)esp[0])));
 	printk("\n\r");
-	do_exit(11);		/* play segment exception */
+	do_exit(11);		/* 段异常 */
 }
 
+// 双重故障处理
 void do_double_fault(long esp, long error_code)
 {
 	die("double fault",esp,error_code);
 }
 
+// 一般保护异常处理
 void do_general_protection(long esp, long error_code)
 {
 	die("general protection",esp,error_code);
 }
 
+// 除法错误处理
 void do_divide_error(long esp, long error_code)
 {
 	die("divide error",esp,error_code);
 }
 
+// 断点中断处理
 void do_int3(long * esp, long error_code,
 		long fs,long es,long ds,
 		long ebp,long esi,long edi,
@@ -107,66 +117,79 @@ void do_int3(long * esp, long error_code,
 	printk("EIP: %8x   CS: %4x  EFLAGS: %8x\n\r",esp[0],esp[1],esp[2]);
 }
 
+// 非屏蔽中断处理
 void do_nmi(long esp, long error_code)
 {
 	die("nmi",esp,error_code);
 }
 
+// 调试异常处理
 void do_debug(long esp, long error_code)
 {
 	die("debug",esp,error_code);
 }
 
+// 溢出处理
 void do_overflow(long esp, long error_code)
 {
 	die("overflow",esp,error_code);
 }
 
+// 边界检查处理
 void do_bounds(long esp, long error_code)
 {
 	die("bounds",esp,error_code);
 }
 
+// 无效操作数处理
 void do_invalid_op(long esp, long error_code)
 {
 	die("invalid operand",esp,error_code);
 }
 
+// 设备不可用处理
 void do_device_not_available(long esp, long error_code)
 {
 	die("device not available",esp,error_code);
 }
 
+// 协处理器段越界处理
 void do_coprocessor_segment_overrun(long esp, long error_code)
 {
 	die("coprocessor segment overrun",esp,error_code);
 }
 
+// 无效TSS处理
 void do_invalid_TSS(long esp,long error_code)
 {
 	die("invalid TSS",esp,error_code);
 }
 
+// 段不存在处理
 void do_segment_not_present(long esp,long error_code)
 {
 	die("segment not present",esp,error_code);
 }
 
+// 栈段异常处理
 void do_stack_segment(long esp,long error_code)
 {
 	die("stack segment",esp,error_code);
 }
 
+// 协处理器错误处理
 void do_coprocessor_error(long esp, long error_code)
 {
 	die("coprocessor error",esp,error_code);
 }
 
+// 保留异常处理
 void do_reserved(long esp, long error_code)
 {
 	die("reserved (15,17-31) error",esp,error_code);
 }
 
+// 异常处理初始化函数
 void trap_init(void)
 {
 	int i;
@@ -174,7 +197,7 @@ void trap_init(void)
 	set_trap_gate(0,&divide_error);
 	set_trap_gate(1,&debug);
 	set_trap_gate(2,&nmi);
-	set_system_gate(3,&int3);	/* int3-5 can be called from all */
+	set_system_gate(3,&int3);	/* int3-5可以从所有地方调用 */
 	set_system_gate(4,&overflow);
 	set_system_gate(5,&bounds);
 	set_trap_gate(6,&invalid_op);
@@ -196,4 +219,3 @@ void trap_init(void)
 		"movl %%eax,%%db7"
 		:::"ax");*/
 }
-

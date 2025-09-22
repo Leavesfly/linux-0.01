@@ -8,16 +8,17 @@
 #include <linux/mm.h>
 #include <asm/segment.h>
 
-extern int sys_exit(int exit_code);
-extern int sys_close(int fd);
+// 外部函数声明
+extern int sys_exit(int exit_code);    // 系统退出函数
+extern int sys_close(int fd);          // 系统关闭文件函数
 
 /*
- * MAX_ARG_PAGES defines the number of pages allocated for arguments
- * and envelope for the new program. 32 should suffice, this gives
- * a maximum env+arg of 128kB !
+ * MAX_ARG_PAGES定义为新程序分配的用于参数和环境变量的页数。
+ * 32应该足够了，这给出了最大128kB的环境变量+参数！
  */
 #define MAX_ARG_PAGES 32
 
+// 复制块的宏定义
 #define cp_block(from,to) \
 __asm__("pushl $0x10\n\t" \
 	"pushl $0x17\n\t" \
@@ -30,9 +31,9 @@ __asm__("pushl $0x10\n\t" \
 	:"cx","di","si")
 
 /*
- * read_head() reads blocks 1-6 (not 0). Block 0 has already been
- * read for header information.
+ * read_head()读取块1-6（不包括0）。块0已经为头信息读取过了。
  */
+// 读取程序头部的函数
 int read_head(struct m_inode * inode,int blocks)
 {
 	struct buffer_head * bh;
@@ -51,6 +52,7 @@ int read_head(struct m_inode * inode,int blocks)
 	return 0;
 }
 
+// 读取间接块的函数
 int read_ind(int dev,int ind,long size,unsigned long offset)
 {
 	struct buffer_head * ih, * bh;
@@ -82,8 +84,9 @@ int read_ind(int dev,int ind,long size,unsigned long offset)
 }
 
 /*
- * read_area() reads an area into %fs:mem.
+ * read_area()将一个区域读入%fs:mem。
  */
+// 读取程序区域的函数
 int read_area(struct m_inode * inode,long size)
 {
 	struct buffer_head * dind;
@@ -109,10 +112,10 @@ int read_area(struct m_inode * inode,long size)
 }
 
 /*
- * create_tables() parses the env- and arg-strings in new user
- * memory and creates the pointer tables from them, and puts their
- * addresses on the "stack", returning the new stack pointer value.
+ * create_tables()解析新用户内存中的环境变量和参数字符串，
+ * 并从中创建指针表，将它们的地址放在"栈"上，返回新的栈指针值。
  */
+// 创建参数表的静态函数
 static unsigned long * create_tables(char * p,int argc,int envc)
 {
 	unsigned long *argv,*envp;
@@ -128,20 +131,21 @@ static unsigned long * create_tables(char * p,int argc,int envc)
 	put_fs_long((unsigned long)argc,--sp);
 	while (argc-->0) {
 		put_fs_long((unsigned long) p,argv++);
-		while (get_fs_byte(p++)) /* nothing */ ;
+		while (get_fs_byte(p++)) /* 无操作 */ ;
 	}
 	put_fs_long(0,argv);
 	while (envc-->0) {
 		put_fs_long((unsigned long) p,envp++);
-		while (get_fs_byte(p++)) /* nothing */ ;
+		while (get_fs_byte(p++)) /* 无操作 */ ;
 	}
 	put_fs_long(0,envp);
 	return sp;
 }
 
 /*
- * count() counts the number of arguments/envelopes
+ * count()计算参数/环境变量的数量
  */
+// 计算参数数量的静态函数
 static int count(char ** argv)
 {
 	int i=0;
@@ -155,10 +159,10 @@ static int count(char ** argv)
 }
 
 /*
- * 'copy_string()' copies argument/envelope strings from user
- * memory to free pages in kernel mem. These are in a format ready
- * to be put directly into the top of new user memory.
+ * 'copy_string()'将参数/环境变量字符串从用户内存复制到内核内存中的空闲页。
+ * 这些字符串的格式已经准备好直接放入新用户内存的顶部。
  */
+// 复制字符串的静态函数
 static unsigned long copy_strings(int argc,char ** argv,unsigned long *page,
 		unsigned long p)
 {
@@ -168,11 +172,11 @@ static unsigned long copy_strings(int argc,char ** argv,unsigned long *page,
 	while (argc-- > 0) {
 		if (!(tmp = (char *)get_fs_long(((unsigned long *) argv)+argc)))
 			panic("argc is wrong");
-		len=0;		/* remember zero-padding */
+		len=0;		/* 记住零填充 */
 		do {
 			len++;
 		} while (get_fs_byte(tmp++));
-		if (p-len < 0)		/* this shouldn't happen - 128kB */
+		if (p-len < 0)		/* 这不应该发生 - 128kB */
 			return 0;
 		i = ((unsigned) (p-len)) >> 12;
 		while (i<MAX_ARG_PAGES && !page[i]) {
@@ -191,6 +195,7 @@ static unsigned long copy_strings(int argc,char ** argv,unsigned long *page,
 	return p;
 }
 
+// 改变局部描述符表的静态函数
 static unsigned long change_ldt(unsigned long text_size,unsigned long * page)
 {
 	unsigned long code_limit,data_limit,code_base,data_base;
@@ -205,7 +210,7 @@ static unsigned long change_ldt(unsigned long text_size,unsigned long * page)
 	set_limit(current->ldt[1],code_limit);
 	set_base(current->ldt[2],data_base);
 	set_limit(current->ldt[2],data_limit);
-/* make sure fs points to the NEW data segment */
+/* 确保fs指向新的数据段 */
 	__asm__("pushl $0x17\n\tpop %%fs"::);
 	data_base += data_limit;
 	for (i=MAX_ARG_PAGES-1 ; i>=0 ; i--) {
@@ -217,8 +222,9 @@ static unsigned long change_ldt(unsigned long text_size,unsigned long * page)
 }
 
 /*
- * 'do_execve()' executes a new program.
+ * 'do_execve()'执行一个新程序。
  */
+// 执行程序的核心函数
 int do_execve(unsigned long * eip,long tmp,char * filename,
 	char ** argv, char ** envp)
 {
@@ -231,11 +237,11 @@ int do_execve(unsigned long * eip,long tmp,char * filename,
 
 	if ((0xffff & eip[1]) != 0x000f)
 		panic("execve called from supervisor mode");
-	for (i=0 ; i<MAX_ARG_PAGES ; i++)	/* clear page-table */
+	for (i=0 ; i<MAX_ARG_PAGES ; i++)	/* 清空页表 */
 		page[i]=0;
-	if (!(inode=namei(filename)))		/* get executables inode */
+	if (!(inode=namei(filename)))		/* 获取可执行文件的inode */
 		return -ENOENT;
-	if (!S_ISREG(inode->i_mode)) {	/* must be regular file */
+	if (!S_ISREG(inode->i_mode)) {	/* 必须是常规文件 */
 		iput(inode);
 		return -EACCES;
 	}
@@ -255,7 +261,7 @@ int do_execve(unsigned long * eip,long tmp,char * filename,
 		iput(inode);
 		return -EACCES;
 	}
-	ex = *((struct exec *) bh->b_data);	/* read exec-header */
+	ex = *((struct exec *) bh->b_data);	/* 读取执行文件头 */
 	brelse(bh);
 	if (N_MAGIC(ex) != ZMAGIC || ex.a_trsize || ex.a_drsize ||
 		ex.a_text+ex.a_data+ex.a_bss>0x3000000 ||
@@ -275,7 +281,7 @@ int do_execve(unsigned long * eip,long tmp,char * filename,
 		iput(inode);
 		return -1;
 	}
-/* OK, This is the point of no return */
+/* OK, 这是不可返回的点 */
 	for (i=0 ; i<32 ; i++)
 		current->sig_fn[i] = NULL;
 	for (i=0 ; i<NR_OPEN ; i++)
@@ -300,7 +306,7 @@ int do_execve(unsigned long * eip,long tmp,char * filename,
 	i = ex.a_text+ex.a_data;
 	while (i&0xfff)
 		put_fs_byte(0,(char *) (i++));
-	eip[0] = ex.a_entry;		/* eip, magic happens :-) */
-	eip[3] = p;			/* stack pointer */
+	eip[0] = ex.a_entry;		/* eip, 魔法发生了 :-) */
+	eip[3] = p;			/* 栈指针 */
 	return 0;
 }

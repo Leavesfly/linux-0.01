@@ -1,8 +1,7 @@
 /*
- * 'sched.c' is the main kernel file. It contains scheduling primitives
- * (sleep_on, wakeup, schedule etc) as well as a number of simple system
- * call functions (type getpid(), which just extracts a field from
- * current-task
+ * 'sched.c'是主要的内核文件。它包含调度原语
+ * (sleep_on, wakeup, schedule等)以及一些简单的系统
+ * 调用函数(如getpid()，它只是从当前任务中提取字段)
  */
 #include <linux/sched.h>
 #include <linux/kernel.h>
@@ -19,28 +18,35 @@ extern void mem_use(void);
 extern int timer_interrupt(void);
 extern int system_call(void);
 
+// 任务联合体，包含任务结构和栈空间
 union task_union {
-	struct task_struct task;
-	char stack[PAGE_SIZE];
+	struct task_struct task;  // 任务结构体
+	char stack[PAGE_SIZE];    // 任务栈空间
 };
 
+// 初始化任务
 static union task_union init_task = {INIT_TASK,};
 
+// 全局变量：jiffies表示系统启动以来的时钟滴答数，startup_time表示系统启动时间
 long volatile jiffies=0;
 long startup_time=0;
+// 当前运行任务指针和最后使用数学协处理器的任务指针
 struct task_struct *current = &(init_task.task), *last_task_used_math = NULL;
 
+// 任务数组，用于存储系统中的所有任务
 struct task_struct * task[NR_TASKS] = {&(init_task.task), };
 
+// 用户态栈空间
 long user_stack [ PAGE_SIZE>>2 ] ;
 
+// 栈起始结构，包含栈顶指针和代码段选择子
 struct {
 	long * a;
 	short b;
 	} stack_start = { & user_stack [PAGE_SIZE>>2] , 0x10 };
 /*
- *  'math_state_restore()' saves the current math information in the
- * old math state array, and gets the new ones from the current task
+ *  'math_state_restore()'保存当前的数学协处理器状态信息到
+ * 旧的数学状态数组中，并从当前任务中获取新的状态信息
  */
 void math_state_restore()
 {
@@ -56,21 +62,19 @@ void math_state_restore()
 }
 
 /*
- *  'schedule()' is the scheduler function. This is GOOD CODE! There
- * probably won't be any reason to change this, as it should work well
- * in all circumstances (ie gives IO-bound processes good response etc).
- * The one thing you might take a look at is the signal-handler code here.
+ *  'schedule()'是调度器函数。这是优秀的代码！
+ * 在所有情况下都应该能良好工作（例如给IO密集型进程良好的响应等）。
+ * 你可能需要关注的一点是这里的信号处理代码。
  *
- *   NOTE!!  Task 0 is the 'idle' task, which gets called when no other
- * tasks can run. It can not be killed, and it cannot sleep. The 'state'
- * information in task[0] is never used.
+ *   注意！！任务0是'空闲'任务，当没有其他任务可以运行时被调用。
+ * 它不能被杀死，也不能睡眠。任务[0]中的'state'信息从未被使用。
  */
 void schedule(void)
 {
 	int i,next,c;
 	struct task_struct ** p;
 
-/* check alarm, wake up any interruptible tasks that have got a signal */
+/* 检查闹钟，唤醒任何收到信号的可中断任务 */
 
 	for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)
 		if (*p) {
@@ -82,7 +86,7 @@ void schedule(void)
 				(*p)->state=TASK_RUNNING;
 		}
 
-/* this is the scheduler proper: */
+/* 这是调度器的核心部分: */
 
 	while (1) {
 		c = -1;
@@ -104,6 +108,7 @@ void schedule(void)
 	switch_to(next);
 }
 
+// 系统调用pause的实现，使当前进程进入可中断的睡眠状态
 int sys_pause(void)
 {
 	current->state = TASK_INTERRUPTIBLE;
@@ -111,6 +116,7 @@ int sys_pause(void)
 	return 0;
 }
 
+// 使当前进程进入不可中断的睡眠状态
 void sleep_on(struct task_struct **p)
 {
 	struct task_struct *tmp;
@@ -127,6 +133,7 @@ void sleep_on(struct task_struct **p)
 		tmp->state=0;
 }
 
+// 使当前进程进入可中断的睡眠状态
 void interruptible_sleep_on(struct task_struct **p)
 {
 	struct task_struct *tmp;
@@ -148,6 +155,7 @@ repeat:	current->state = TASK_INTERRUPTIBLE;
 		tmp->state=0;
 }
 
+// 唤醒睡眠在指定等待队列上的进程
 void wake_up(struct task_struct **p)
 {
 	if (p && *p) {
@@ -156,6 +164,7 @@ void wake_up(struct task_struct **p)
 	}
 }
 
+// 定时器处理函数，更新当前进程的时间统计
 void do_timer(long cpl)
 {
 	if (cpl)
@@ -168,42 +177,50 @@ void do_timer(long cpl)
 	schedule();
 }
 
+// 设置闹钟信号
 int sys_alarm(long seconds)
 {
 	current->alarm = (seconds>0)?(jiffies+HZ*seconds):0;
 	return seconds;
 }
 
+// 获取当前进程ID
 int sys_getpid(void)
 {
 	return current->pid;
 }
 
+// 获取父进程ID
 int sys_getppid(void)
 {
 	return current->father;
 }
 
+// 获取用户ID
 int sys_getuid(void)
 {
 	return current->uid;
 }
 
+// 获取有效用户ID
 int sys_geteuid(void)
 {
 	return current->euid;
 }
 
+// 获取组ID
 int sys_getgid(void)
 {
 	return current->gid;
 }
 
+// 获取有效组ID
 int sys_getegid(void)
 {
 	return current->egid;
 }
 
+// 调整进程优先级
 int sys_nice(long increment)
 {
 	if (current->priority-increment>0)
@@ -211,6 +228,7 @@ int sys_nice(long increment)
 	return 0;
 }
 
+// 设置信号处理函数
 int sys_signal(long signal,long addr,long restorer)
 {
 	long i;
@@ -228,6 +246,7 @@ int sys_signal(long signal,long addr,long restorer)
 	}
 }
 
+// 调度器初始化函数
 void sched_init(void)
 {
 	int i;

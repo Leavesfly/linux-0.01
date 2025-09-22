@@ -6,16 +6,18 @@
 #include <linux/sched.h>
 #include <asm/segment.h>
 
-extern int rw_char(int rw,int dev, char * buf, int count);
-extern int read_pipe(struct m_inode * inode, char * buf, int count);
-extern int write_pipe(struct m_inode * inode, char * buf, int count);
-extern int block_read(int dev, off_t * pos, char * buf, int count);
-extern int block_write(int dev, off_t * pos, char * buf, int count);
+// 外部函数声明
+extern int rw_char(int rw,int dev, char * buf, int count);              // 字符设备读写
+extern int read_pipe(struct m_inode * inode, char * buf, int count);    // 管道读取
+extern int write_pipe(struct m_inode * inode, char * buf, int count);   // 管道写入
+extern int block_read(int dev, off_t * pos, char * buf, int count);     // 块设备读取
+extern int block_write(int dev, off_t * pos, char * buf, int count);    // 块设备写入
 extern int file_read(struct m_inode * inode, struct file * filp,
-		char * buf, int count);
+		char * buf, int count);                                         // 文件读取
 extern int file_write(struct m_inode * inode, struct file * filp,
-		char * buf, int count);
+		char * buf, int count);                                         // 文件写入
 
+// lseek系统调用，设置文件偏移量
 int sys_lseek(unsigned int fd,off_t offset, int origin)
 {
 	struct file * file;
@@ -27,15 +29,15 @@ int sys_lseek(unsigned int fd,off_t offset, int origin)
 	if (file->f_inode->i_pipe)
 		return -ESPIPE;
 	switch (origin) {
-		case 0:
+		case 0:  // 从文件开始处计算偏移
 			if (offset<0) return -EINVAL;
 			file->f_pos=offset;
 			break;
-		case 1:
+		case 1:  // 从当前位置计算偏移
 			if (file->f_pos+offset<0) return -EINVAL;
 			file->f_pos += offset;
 			break;
-		case 2:
+		case 2:  // 从文件末尾计算偏移
 			if ((tmp=file->f_inode->i_size+offset) < 0)
 				return -EINVAL;
 			file->f_pos = tmp;
@@ -46,6 +48,7 @@ int sys_lseek(unsigned int fd,off_t offset, int origin)
 	return file->f_pos;
 }
 
+// read系统调用，读取文件数据
 int sys_read(unsigned int fd,char * buf,int count)
 {
 	struct file * file;
@@ -74,6 +77,7 @@ int sys_read(unsigned int fd,char * buf,int count)
 	return -EINVAL;
 }
 
+// write系统调用，写入文件数据
 int sys_write(unsigned int fd,char * buf,int count)
 {
 	struct file * file;

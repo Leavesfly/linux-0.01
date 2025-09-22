@@ -5,11 +5,15 @@
 #include <linux/mm.h>
 #include <asm/system.h>
 
+// inode表，用于存储内存中的inode结构
 struct m_inode inode_table[NR_INODE]={{0,},};
 
+// 读取inode函数声明
 static void read_inode(struct m_inode * inode);
+// 写入inode函数声明
 static void write_inode(struct m_inode * inode);
 
+// 等待inode解锁的内联函数
 static inline void wait_on_inode(struct m_inode * inode)
 {
 	cli();
@@ -18,6 +22,7 @@ static inline void wait_on_inode(struct m_inode * inode)
 	sti();
 }
 
+// 锁定inode的内联函数
 static inline void lock_inode(struct m_inode * inode)
 {
 	cli();
@@ -27,12 +32,14 @@ static inline void lock_inode(struct m_inode * inode)
 	sti();
 }
 
+// 解锁inode的内联函数
 static inline void unlock_inode(struct m_inode * inode)
 {
 	inode->i_lock=0;
 	wake_up(&inode->i_wait);
 }
 
+// 同步所有脏inode到磁盘
 void sync_inodes(void)
 {
 	int i;
@@ -46,6 +53,7 @@ void sync_inodes(void)
 	}
 }
 
+// 块映射函数，用于将逻辑块号映射到物理块号
 static int _bmap(struct m_inode * inode,int block,int create)
 {
 	struct buffer_head * bh;
@@ -114,16 +122,19 @@ static int _bmap(struct m_inode * inode,int block,int create)
 	return i;
 }
 
+// 获取inode的物理块号（不创建新块）
 int bmap(struct m_inode * inode,int block)
 {
 	return _bmap(inode,block,0);
 }
 
+// 创建inode的新块
 int create_block(struct m_inode * inode, int block)
 {
 	return _bmap(inode,block,1);
 }
 		
+// 释放inode引用计数
 void iput(struct m_inode * inode)
 {
 	if (!inode)
@@ -152,7 +163,7 @@ repeat:
 		return;
 	}
 	if (inode->i_dirt) {
-		write_inode(inode);	/* we can sleep - so do again */
+		write_inode(inode);	/* 我们可以睡眠 - 所以再做一次 */
 		wait_on_inode(inode);
 		goto repeat;
 	}
@@ -160,8 +171,10 @@ repeat:
 	return;
 }
 
+// 最后分配的inode号
 static volatile int last_allocated_inode = 0;
 
+// 获取空闲的inode结构
 struct m_inode * get_empty_inode(void)
 {
 	struct m_inode * inode;
@@ -199,6 +212,7 @@ struct m_inode * get_empty_inode(void)
 	return inode;
 }
 
+// 获取管道inode
 struct m_inode * get_pipe_inode(void)
 {
 	struct m_inode * inode;
@@ -209,12 +223,13 @@ struct m_inode * get_pipe_inode(void)
 		inode->i_count = 0;
 		return NULL;
 	}
-	inode->i_count = 2;	/* sum of readers/writers */
+	inode->i_count = 2;	/* 读取器/写入器的总和 */
 	PIPE_HEAD(*inode) = PIPE_TAIL(*inode) = 0;
 	inode->i_pipe = 1;
 	return inode;
 }
 
+// 根据设备号和inode号获取inode
 struct m_inode * iget(int dev,int nr)
 {
 	struct m_inode * inode, * empty;
@@ -247,6 +262,7 @@ struct m_inode * iget(int dev,int nr)
 	return inode;
 }
 
+// 从磁盘读取inode
 static void read_inode(struct m_inode * inode)
 {
 	struct super_block * sb;
@@ -266,6 +282,7 @@ static void read_inode(struct m_inode * inode)
 	unlock_inode(inode);
 }
 
+// 将inode写入磁盘
 static void write_inode(struct m_inode * inode)
 {
 	struct super_block * sb;
